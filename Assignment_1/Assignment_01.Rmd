@@ -1,0 +1,366 @@
+---
+title: "Assignment_01"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+# Code By: Xan Lamoreux
+# Advanced Machine Learning
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Import Keras Library and load imdb dataset
+num_words = 10000 (To keep the top 10000 most frequent words)
+```{r}
+library(keras)
+imdb <- dataset_imdb(num_words = 10000)
+```
+
+## Get the list of reviews for train and test data and labels
+Labels 0 means negative review
+Labels 1 means positive review
+```{r}
+train_data <- imdb$train$x
+train_labels <- imdb$train$y
+test_data <- imdb$test$x
+test_labels <- imdb$test$y
+```
+
+Check one of data set value and its label
+```{r}
+str(train_data[[11]])
+train_labels[[11]]
+```
+
+Maximum index number
+
+```{r}
+max(sapply(train_data, max))
+```
+
+
+Decoding Review
+```{r}
+word_index <- dataset_imdb_word_index()
+word_index[11]
+
+reverse_word_index <- names(word_index)
+reverse_word_index[11]
+
+names(reverse_word_index) <- word_index
+
+decoded_review <- sapply(train_data[[11]], function(index) {
+  word <- if (index >= 3) reverse_word_index[[as.character(index - 3)]]
+  if (!is.null(word)) word else "?"
+})
+
+cat(decoded_review)
+```
+
+
+## Preparing the Data
+Use one-hot-encoding technique to turn list into vectors of 0's and 1's
+```{r}
+vectorize_sequences <- function(sequences, dimension = 10000) {
+  results <- matrix(0, nrow = length(sequences), ncol = dimension)
+  for (i in 1:length(sequences))
+    results[i, sequences[[i]]] <- 1
+  results
+}
+
+x_train <- vectorize_sequences(train_data)
+x_test <- vectorize_sequences(test_data)
+
+str(x_train[1,])
+
+y_train <- as.numeric(train_labels)
+y_test <- as.numeric(test_labels)
+```
+
+## Creating a Validation Set
+```{r}
+val_indices <- 1:10000
+
+x_val <- x_train[val_indices,]
+partial_x_train <- x_train[-val_indices,]
+y_val <- y_train[val_indices]
+partial_y_train <- y_train[-val_indices]
+
+```
+
+
+## Build the network
+Create the sequential model
+```{r}
+model <- keras_model_sequential() %>%
+  layer_dense(units = 16, activation = "relu", input_shape = c(10000)) %>%
+  layer_dense(units = 16, activation = "relu") %>%
+  layer_dense(units = 1, activation = "sigmoid")
+```
+
+Compiling the model
+```{r}
+model %>% compile(
+  optimizer = "rmsprop",
+  loss = "binary_crossentropy",
+  metrics = c("accuracy")
+)
+
+```
+
+
+
+## Train the model
+```{r}
+history <- model %>% fit(
+  partial_x_train,
+  partial_y_train,
+  epochs = 20,
+  batch_size = 512,
+  validation_data = list(x_val, y_val)
+)
+
+str(history)
+
+plot(history)
+
+```
+
+
+
+## Creating model from scratch and test it
+```{r}
+model <- keras_model_sequential() %>%
+  layer_dense(units = 16, activation = "relu", input_shape = c(10000)) %>%
+  layer_dense(units = 16, activation = "relu") %>%
+  layer_dense(units = 1, activation = "sigmoid")
+
+model %>% compile(
+  optimizer = "rmsprop",
+  loss = "binary_crossentropy",
+  metrics = c("accuracy")
+)
+
+model %>% fit(
+  x_train,
+  y_train,
+  epochs = 4,
+  batch_size = 512)
+
+results <- model %>% evaluate(x_test, y_test)
+
+results
+```
+
+## Check predictions on new data set
+```{r}
+model %>% predict(x_test[1:10,])
+```
+
+
+
+## Task # 01.
+## You used two hidden layers. Try using one or three hidden layers, and see how doing so affects validation and test accuracy.
+
+```{r three_hidden_layers}
+# USING 3 HIDDEN LAYERS
+model_01 <- keras_model_sequential() %>%
+  layer_dense(units = 16, activation = "relu", input_shape = c(10000)) %>%
+  layer_dense(units = 16, activation = "relu") %>%
+  layer_dense(units = 16, activation = "relu") %>%
+  layer_dense(units = 1, activation = "sigmoid")
+
+
+model_01 %>% compile(
+  optimizer = "rmsprop",
+  loss = "binary_crossentropy",
+  metrics = c("accuracy")
+)
+
+history_01 <- model_01 %>% fit(
+  partial_x_train,
+  partial_y_train,
+  epochs = 20,
+  batch_size = 512,
+  validation_data = list(x_val, y_val)
+)
+
+str(history_01)
+
+plot(history_01)
+
+results_01 <- model_01 %>% evaluate(x_test, y_test)
+
+results_01
+
+history_01
+```
+
+
+
+## TASK # 02.
+## Try using layers with more hidden units or fewer hidden units: 32 units, 64 units, and so on.
+
+```{r 32_hidden_units}
+# USING 32 HIDDEN UNITS
+model_02 <- keras_model_sequential() %>%
+  layer_dense(units = 32, activation = "relu", input_shape = c(10000)) %>%
+  layer_dense(units = 32, activation = "relu") %>%
+  layer_dense(units = 1, activation = "sigmoid")
+
+
+model_02 %>% compile(
+  optimizer = "rmsprop",
+  loss = "binary_crossentropy",
+  metrics = c("accuracy")
+)
+
+history_02 <- model_02 %>% fit(
+  partial_x_train,
+  partial_y_train,
+  epochs = 20,
+  batch_size = 512,
+  validation_data = list(x_val, y_val)
+)
+
+str(history_02)
+
+plot(history_02)
+
+results_02 <- model_02 %>% evaluate(x_test, y_test)
+
+results_02
+
+history_02
+```
+
+
+
+
+## TASK # 03.
+## Try using the mse loss function instead of binary_crossentropy.
+
+
+```{r mse_loss_function}
+# USING MSE LOSS FUNCTION
+model_03 <- keras_model_sequential() %>%
+  layer_dense(units = 16, activation = "relu", input_shape = c(10000)) %>%
+  layer_dense(units = 16, activation = "relu") %>%
+  layer_dense(units = 1, activation = "sigmoid")
+
+
+model_03 %>% compile(
+  optimizer = "rmsprop",
+  loss = "mse",
+  metrics = c("accuracy")
+)
+
+history_03 <- model_03 %>% fit(
+  partial_x_train,
+  partial_y_train,
+  epochs = 20,
+  batch_size = 512,
+  validation_data = list(x_val, y_val)
+)
+
+str(history_03)
+
+plot(history_03)
+
+results_03 <- model_03 %>% evaluate(x_test, y_test)
+
+results_03
+
+history_03
+
+```
+
+
+
+## TASK # 04.
+## 4. Try using the tanh activation (an activation that was popular in the early days of neural networks) instead of relu.
+
+
+```{r tanh_activation_function}
+# USING TANH ACTIVATION FUNCTION
+model_04 <- keras_model_sequential() %>%
+  layer_dense(units = 16, activation = "tanh", input_shape = c(10000)) %>%
+  layer_dense(units = 16, activation = "tanh") %>%
+  layer_dense(units = 1, activation = "sigmoid")
+
+
+model_04 %>% compile(
+  optimizer = "rmsprop",
+  loss = "binary_crossentropy",
+  metrics = c("accuracy")
+)
+
+history_04 <- model_04 %>% fit(
+  partial_x_train,
+  partial_y_train,
+  epochs = 20,
+  batch_size = 512,
+  validation_data = list(x_val, y_val)
+)
+
+str(history_04)
+
+plot(history_04)
+
+results_04 <- model_04 %>% evaluate(x_test, y_test)
+
+results_04
+
+history_04
+```
+
+
+
+## TASK # 05.
+## 5. Use any technique we studied in class, and these include regularization, dropout, etc., to get your model to perform better on validation.
+
+
+```{r adding_dropout}
+# USING DROP OUT
+
+model_05 <- keras_model_sequential() %>%
+  layer_dense(units = 16, activation = "relu", input_shape = c(10000)) %>%
+  layer_dropout(rate = 0.5) %>%
+  layer_dense(units = 16, activation = "relu") %>%
+  layer_dropout(rate = 0.5) %>%
+  layer_dense(units = 1, activation = "sigmoid")
+
+
+model_05 %>% compile(
+  optimizer = "rmsprop",
+  loss = "binary_crossentropy",
+  metrics = c("accuracy")
+)
+
+history_05 <- model_05 %>% fit(
+  partial_x_train,
+  partial_y_train,
+  epochs = 20,
+  batch_size = 512,
+  validation_data = list(x_val, y_val)
+)
+
+str(history_05)
+
+plot(history_05)
+
+results_05 <- model_05 %>% evaluate(x_test, y_test)
+
+results_05
+
+history_05
+
+```
+
+
+

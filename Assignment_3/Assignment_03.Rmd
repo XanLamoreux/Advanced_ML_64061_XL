@@ -1,0 +1,933 @@
+---
+title: "Assignment_03"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+# Code By: Xan Lamoreux
+# Advanced Machine Learning
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+<!-- ## TASK 01 (Without using RNN) -->
+
+
+<!-- ## Processing the labels of the raw IMDB data -->
+<!-- ```{r} -->
+<!-- library(keras) -->
+
+
+<!-- imdb_dir <- "E:/Assignments and Tasks/Xan - Advance Machine Learning/Module 05/Data/aclImdb/" -->
+<!-- train_dir <- file.path(imdb_dir, "train") -->
+<!-- labels <- c() -->
+<!-- texts <- c() -->
+<!-- for (label_type in c("neg", "pos")) { -->
+<!--   label <- switch(label_type, neg = 0, pos = 1) -->
+<!--   dir_name <- file.path(train_dir, label_type) -->
+<!--   for (fname in list.files(dir_name, pattern = glob2rx("*.txt"), -->
+<!--                            full.names = TRUE)) { -->
+<!--     texts <- c(texts, readChar(fname, file.info(fname)$size)) -->
+<!--     labels <- c(labels, label) -->
+<!--   } -->
+<!-- } -->
+
+
+<!-- ``` -->
+
+
+
+<!-- ## Tokenizing the text of the raw IMDB data -->
+<!-- ```{r} -->
+
+<!-- maxlen <- 150 -->
+<!-- training_samples <- 100 -->
+<!-- validation_samples <- 10000 -->
+<!-- max_words <- 10000 -->
+
+<!-- tokenizer <- text_tokenizer(num_words = max_words) %>% -->
+<!--   fit_text_tokenizer(texts) -->
+<!-- sequences <- texts_to_sequences(tokenizer, texts) -->
+<!-- word_index = tokenizer$word_index -->
+<!-- cat("Found", length(word_index), "unique tokens.\n") -->
+
+<!-- data <- pad_sequences(sequences, maxlen = maxlen) -->
+<!-- labels <- as.array(labels) -->
+<!-- cat("Shape of data tensor:", dim(data), "\n") -->
+<!-- cat('Shape of label tensor:', dim(labels), "\n") -->
+
+<!-- indices <- sample(1:nrow(data)) -->
+<!-- training_indices <- indices[1:training_samples] -->
+<!-- validation_indices <- indices[(training_samples + 1): -->
+<!--                               (training_samples + validation_samples)] -->
+<!-- x_train <- data[training_indices,] -->
+<!-- y_train <- labels[training_indices] -->
+<!-- x_val <- data[validation_indices,] -->
+<!-- y_val <- labels[validation_indices] -->
+
+<!-- ``` -->
+
+
+
+<!-- ## Pre-trained Glove Embedding Model -->
+<!-- ## Parsing the GloVe word-embeddings file -->
+
+<!-- ```{r} -->
+<!-- glove_dir = "E:/Assignments and Tasks/Xan - Advance Machine Learning/Module 05/Data/" -->
+<!-- lines <- readLines(file.path(glove_dir, "glove.6B.100d.txt")) -->
+<!-- embeddings_index <- new.env(hash = TRUE, parent = emptyenv()) -->
+<!-- for (i in 1:length(lines)) { -->
+<!--   line <- lines[[i]] -->
+<!--   values <- strsplit(line, " ")[[1]] -->
+<!--   word <- values[[1]] -->
+<!--   embeddings_index[[word]] <- as.double(values[-1]) -->
+<!-- } -->
+<!-- cat("Found", length(embeddings_index), "word vectors.\n") -->
+<!-- ``` -->
+
+
+
+<!-- ## Preparing the GloVe word-embeddings matrix -->
+<!-- ```{r} -->
+<!-- embedding_dim <- 100 -->
+<!-- embedding_matrix <- array(0, c(max_words, embedding_dim)) -->
+<!-- for (word in names(word_index)) { -->
+<!--   index <- word_index[[word]] -->
+<!--   if (index < max_words) { -->
+<!--     embedding_vector <- embeddings_index[[word]] -->
+<!--     if (!is.null(embedding_vector)) -->
+<!--       embedding_matrix[index+1,] <- embedding_vector -->
+<!--   } -->
+<!-- } -->
+<!-- ``` -->
+
+
+<!-- ## Model definition -->
+<!-- ```{r} -->
+<!-- model <- keras_model_sequential() %>% -->
+<!--   layer_embedding(input_dim = max_words, output_dim = embedding_dim, -->
+<!--                   input_length = maxlen) %>% -->
+<!--   layer_flatten() %>% -->
+<!--   layer_dense(units = 32, activation = "relu") %>% -->
+<!--   layer_dense(units = 1, activation = "sigmoid") -->
+<!-- summary(model) -->
+
+<!-- ``` -->
+
+
+<!-- ## Loading pretrained word embeddings into the embedding layer -->
+<!-- ```{r} -->
+
+<!-- get_layer(model, index = 1) %>% -->
+<!--   set_weights(list(embedding_matrix)) %>% -->
+<!--   freeze_weights() -->
+<!-- ``` -->
+
+
+<!-- ## Training and evaluation -->
+<!-- ```{r} -->
+
+<!-- model %>% compile( -->
+<!--   optimizer = "rmsprop", -->
+<!--   loss = "binary_crossentropy", -->
+<!--   metrics = c("acc") -->
+<!-- ) -->
+<!-- history <- model %>% fit( -->
+<!--   x_train, y_train, -->
+<!--   epochs = 20, -->
+<!--   batch_size = 32, -->
+<!--   validation_data = list(x_val, y_val) -->
+<!-- ) -->
+<!-- save_model_weights_hdf5(model, "pre_trained_glove_model.h5") -->
+
+<!-- plot(history) -->
+
+
+<!-- ``` -->
+
+
+
+<!-- ## Training the same model without pretrained word embeddings -->
+<!-- ```{r} -->
+<!-- model2 <- keras_model_sequential() %>% -->
+<!--   layer_embedding(input_dim = max_words, output_dim = embedding_dim, -->
+<!--                   input_length = maxlen) %>% -->
+<!--   layer_flatten() %>% -->
+<!--   layer_dense(units = 32, activation = "relu") %>% -->
+<!--   layer_dense(units = 1, activation = "sigmoid") -->
+
+<!-- model2 %>% compile( -->
+<!--   optimizer = "rmsprop", -->
+<!--   loss = "binary_crossentropy", -->
+<!--   metrics = c("acc") -->
+<!-- ) -->
+
+<!-- history2 <- model2 %>% fit( -->
+<!--   x_train, y_train, -->
+<!--   epochs = 20, -->
+<!--   batch_size = 32, -->
+<!--   validation_data = list(x_val, y_val) -->
+<!-- ) -->
+
+<!-- plot(history2) -->
+
+
+<!-- ``` -->
+
+
+
+<!-- ## Tokenizing the data of the test set -->
+<!-- ```{r} -->
+
+<!-- test_dir <- file.path(imdb_dir, "test") -->
+<!-- labels <- c() -->
+<!-- texts <- c() -->
+<!-- for (label_type in c("neg", "pos")) { -->
+<!--   label <- switch(label_type, neg = 0, pos = 1) -->
+<!--   dir_name <- file.path(test_dir, label_type) -->
+<!--   for (fname in list.files(dir_name, pattern = glob2rx("*.txt"), -->
+<!--                            full.names = TRUE)) { -->
+<!--     texts <- c(texts, readChar(fname, file.info(fname)$size)) -->
+<!--     labels <- c(labels, label) -->
+<!--   } -->
+<!-- } -->
+<!-- sequences <- texts_to_sequences(tokenizer, texts) -->
+<!-- x_test <- pad_sequences(sequences, maxlen = maxlen) -->
+<!-- y_test <- as.array(labels) -->
+
+<!-- ``` -->
+
+
+<!-- ```{r} -->
+
+<!-- results2 <- model2 %>% evaluate(x_test, y_test) -->
+<!-- results2 -->
+
+<!-- ``` -->
+
+
+<!-- ## Evaluating the model on the test set -->
+<!-- ```{r} -->
+
+<!-- model %>% -->
+<!--   load_model_weights_hdf5("pre_trained_glove_model.h5") %>% -->
+<!--   evaluate(x_test, y_test) -->
+
+<!-- ``` -->
+
+
+
+
+<!-- ======================================================================= -->
+
+
+
+
+
+<!-- ```{r} -->
+<!-- library(keras) -->
+
+<!-- max_features <- 10000 -->
+<!-- maxlen <- 150 -->
+<!-- batch_size <- 32 -->
+
+<!-- cat("Loading data...\n") -->
+<!-- imdb <- dataset_imdb(num_words = max_features) -->
+
+<!-- c(c(input_train, y_train), c(input_test, y_test)) %<-% imdb -->
+<!-- cat(length(input_train), "train sequences\n") -->
+<!-- cat(length(input_test), "test sequences") -->
+<!-- cat("Pad sequences (samples x time)\n") -->
+
+<!-- input_train <- pad_sequences(input_train, maxlen = maxlen) -->
+<!-- input_test <- pad_sequences(input_test, maxlen = maxlen) -->
+<!-- cat("input_train shape:", dim(input_train), "\n") -->
+<!-- cat("input_test shape:", dim(input_test), "\n") -->
+
+<!-- ``` -->
+
+
+
+<!-- ```{r} -->
+
+<!-- model <- keras_model_sequential() %>% -->
+<!--   layer_embedding(input_dim = max_features, output_dim = 32) %>% -->
+<!--   layer_simple_rnn(units = 32) %>% -->
+<!--   layer_dense(units = 1, activation = "sigmoid") -->
+
+<!-- model %>% compile( -->
+<!--   optimizer = "rmsprop", -->
+<!--   loss = "binary_crossentropy", -->
+<!--   metrics = c("acc") -->
+<!-- ) -->
+
+<!-- history <- model %>% fit( -->
+<!--   input_train, y_train, -->
+<!--   epochs = 10, -->
+<!--   batch_size = 128, -->
+<!--   validation_split = 0.2 -->
+<!-- ) -->
+
+<!-- plot(history) -->
+
+
+<!-- ``` -->
+
+
+
+<!-- ======================================================================= -->
+
+
+<!-- ## TASK 02 - (Using RNN) -->
+
+
+<!-- ## Processing the labels of the raw IMDB data -->
+<!-- ```{r} -->
+<!-- library(keras) -->
+
+
+<!-- imdb_dir <- "E:/Assignments and Tasks/Xan - Advance Machine Learning/Module 05/Data/aclImdb/" -->
+<!-- train_dir <- file.path(imdb_dir, "train") -->
+<!-- labels <- c() -->
+<!-- texts <- c() -->
+<!-- for (label_type in c("neg", "pos")) { -->
+<!--   label <- switch(label_type, neg = 0, pos = 1) -->
+<!--   dir_name <- file.path(train_dir, label_type) -->
+<!--   for (fname in list.files(dir_name, pattern = glob2rx("*.txt"), -->
+<!--                            full.names = TRUE)) { -->
+<!--     texts <- c(texts, readChar(fname, file.info(fname)$size)) -->
+<!--     labels <- c(labels, label) -->
+<!--   } -->
+<!-- } -->
+
+
+<!-- ``` -->
+
+
+
+<!-- ## Tokenizing the text of the raw IMDB data -->
+<!-- ```{r} -->
+
+<!-- maxlen <- 150 -->
+<!-- training_samples <- 100 -->
+<!-- validation_samples <- 10000 -->
+<!-- max_words <- 10000 -->
+
+<!-- tokenizer <- text_tokenizer(num_words = max_words) %>% -->
+<!--   fit_text_tokenizer(texts) -->
+<!-- sequences <- texts_to_sequences(tokenizer, texts) -->
+<!-- word_index = tokenizer$word_index -->
+<!-- cat("Found", length(word_index), "unique tokens.\n") -->
+
+<!-- data <- pad_sequences(sequences, maxlen = maxlen) -->
+<!-- labels <- as.array(labels) -->
+<!-- cat("Shape of data tensor:", dim(data), "\n") -->
+<!-- cat('Shape of label tensor:', dim(labels), "\n") -->
+
+<!-- indices <- sample(1:nrow(data)) -->
+<!-- training_indices <- indices[1:training_samples] -->
+<!-- validation_indices <- indices[(training_samples + 1): -->
+<!--                               (training_samples + validation_samples)] -->
+<!-- x_train <- data[training_indices,] -->
+<!-- y_train <- labels[training_indices] -->
+<!-- x_val <- data[validation_indices,] -->
+<!-- y_val <- labels[validation_indices] -->
+
+<!-- ``` -->
+
+
+
+<!-- ## Pre-trained Glove Embedding Model -->
+<!-- ## Parsing the GloVe word-embeddings file -->
+
+<!-- ```{r} -->
+<!-- glove_dir = "E:/Assignments and Tasks/Xan - Advance Machine Learning/Module 05/Data/" -->
+<!-- lines <- readLines(file.path(glove_dir, "glove.6B.100d.txt")) -->
+<!-- embeddings_index <- new.env(hash = TRUE, parent = emptyenv()) -->
+<!-- for (i in 1:length(lines)) { -->
+<!--   line <- lines[[i]] -->
+<!--   values <- strsplit(line, " ")[[1]] -->
+<!--   word <- values[[1]] -->
+<!--   embeddings_index[[word]] <- as.double(values[-1]) -->
+<!-- } -->
+<!-- cat("Found", length(embeddings_index), "word vectors.\n") -->
+<!-- ``` -->
+
+
+
+<!-- ## Preparing the GloVe word-embeddings matrix -->
+<!-- ```{r} -->
+<!-- embedding_dim <- 100 -->
+<!-- embedding_matrix <- array(0, c(max_words, embedding_dim)) -->
+<!-- for (word in names(word_index)) { -->
+<!--   index <- word_index[[word]] -->
+<!--   if (index < max_words) { -->
+<!--     embedding_vector <- embeddings_index[[word]] -->
+<!--     if (!is.null(embedding_vector)) -->
+<!--       embedding_matrix[index+1,] <- embedding_vector -->
+<!--   } -->
+<!-- } -->
+<!-- ``` -->
+
+
+<!-- ## Model definition -->
+<!-- ```{r} -->
+<!-- model <- keras_model_sequential() %>% -->
+<!--   layer_embedding(input_dim = max_words, output_dim = embedding_dim, -->
+<!--                   input_length = maxlen) %>% -->
+<!--   layer_simple_rnn(units = 32) %>% -->
+<!--   layer_dense(units = 1, activation = "sigmoid") -->
+<!-- summary(model) -->
+
+<!-- ``` -->
+
+
+<!-- ## Loading pretrained word embeddings into the embedding layer -->
+<!-- ```{r} -->
+
+<!-- get_layer(model, index = 1) %>% -->
+<!--   set_weights(list(embedding_matrix)) %>% -->
+<!--   freeze_weights() -->
+<!-- ``` -->
+
+
+<!-- ## Training and evaluation -->
+<!-- ```{r} -->
+
+<!-- model %>% compile( -->
+<!--   optimizer = "rmsprop", -->
+<!--   loss = "binary_crossentropy", -->
+<!--   metrics = c("acc") -->
+<!-- ) -->
+<!-- history <- model %>% fit( -->
+<!--   x_train, y_train, -->
+<!--   epochs = 20, -->
+<!--   batch_size = 32, -->
+<!--   validation_data = list(x_val, y_val) -->
+<!-- ) -->
+<!-- save_model_weights_hdf5(model, "pre_trained_glove_model.h5") -->
+
+<!-- plot(history) -->
+
+
+<!-- ``` -->
+
+
+
+<!-- ## Training the same model without pretrained word embeddings -->
+<!-- ```{r} -->
+<!-- model2 <- keras_model_sequential() %>% -->
+<!--   layer_embedding(input_dim = max_words, output_dim = embedding_dim, -->
+<!--                   input_length = maxlen) %>% -->
+<!--   layer_simple_rnn(units = 32) %>% -->
+<!--   layer_dense(units = 1, activation = "sigmoid") -->
+
+
+<!-- model2 %>% compile( -->
+<!--   optimizer = "rmsprop", -->
+<!--   loss = "binary_crossentropy", -->
+<!--   metrics = c("acc") -->
+<!-- ) -->
+
+<!-- history2 <- model2 %>% fit( -->
+<!--   x_train, y_train, -->
+<!--   epochs = 20, -->
+<!--   batch_size = 32, -->
+<!--   validation_data = list(x_val, y_val) -->
+<!-- ) -->
+
+<!-- plot(history2) -->
+
+
+<!-- ``` -->
+
+
+
+<!-- ## Tokenizing the data of the test set -->
+<!-- ```{r} -->
+
+<!-- test_dir <- file.path(imdb_dir, "test") -->
+<!-- labels <- c() -->
+<!-- texts <- c() -->
+<!-- for (label_type in c("neg", "pos")) { -->
+<!--   label <- switch(label_type, neg = 0, pos = 1) -->
+<!--   dir_name <- file.path(test_dir, label_type) -->
+<!--   for (fname in list.files(dir_name, pattern = glob2rx("*.txt"), -->
+<!--                            full.names = TRUE)) { -->
+<!--     texts <- c(texts, readChar(fname, file.info(fname)$size)) -->
+<!--     labels <- c(labels, label) -->
+<!--   } -->
+<!-- } -->
+<!-- sequences <- texts_to_sequences(tokenizer, texts) -->
+<!-- x_test <- pad_sequences(sequences, maxlen = maxlen) -->
+<!-- y_test <- as.array(labels) -->
+
+<!-- ``` -->
+
+
+<!-- ```{r} -->
+
+<!-- results2 <- model2 %>% evaluate(x_test, y_test) -->
+<!-- results2 -->
+
+<!-- ``` -->
+
+
+<!-- ## Evaluating the model on the test set -->
+<!-- ```{r} -->
+
+<!-- model %>% -->
+<!--   load_model_weights_hdf5("pre_trained_glove_model.h5") %>% -->
+<!--   evaluate(x_test, y_test) -->
+
+<!-- ``` -->
+
+
+
+
+
+<!-- <!-- ======================================================================= --> -->
+
+
+<!-- ## TASK 02 - (Using RNN) -->
+
+
+<!-- ## Processing the labels of the raw IMDB data -->
+<!-- ```{r} -->
+<!-- library(keras) -->
+
+
+<!-- imdb_dir <- "E:/Assignments and Tasks/Xan - Advance Machine Learning/Module 05/Data/aclImdb/" -->
+<!-- train_dir <- file.path(imdb_dir, "train") -->
+<!-- labels <- c() -->
+<!-- texts <- c() -->
+<!-- for (label_type in c("neg", "pos")) { -->
+<!--   label <- switch(label_type, neg = 0, pos = 1) -->
+<!--   dir_name <- file.path(train_dir, label_type) -->
+<!--   for (fname in list.files(dir_name, pattern = glob2rx("*.txt"), -->
+<!--                            full.names = TRUE)) { -->
+<!--     texts <- c(texts, readChar(fname, file.info(fname)$size)) -->
+<!--     labels <- c(labels, label) -->
+<!--   } -->
+<!-- } -->
+
+
+<!-- ``` -->
+
+
+
+<!-- ## Tokenizing the text of the raw IMDB data -->
+<!-- ```{r} -->
+
+<!-- maxlen <- 500 -->
+<!-- training_samples <- 500 -->
+<!-- validation_samples <- 10000 -->
+<!-- max_words <- 10000 -->
+
+<!-- tokenizer <- text_tokenizer(num_words = max_words) %>% -->
+<!--   fit_text_tokenizer(texts) -->
+<!-- sequences <- texts_to_sequences(tokenizer, texts) -->
+<!-- word_index = tokenizer$word_index -->
+<!-- cat("Found", length(word_index), "unique tokens.\n") -->
+
+<!-- data <- pad_sequences(sequences, maxlen = maxlen) -->
+<!-- labels <- as.array(labels) -->
+<!-- cat("Shape of data tensor:", dim(data), "\n") -->
+<!-- cat('Shape of label tensor:', dim(labels), "\n") -->
+
+<!-- indices <- sample(1:nrow(data)) -->
+<!-- training_indices <- indices[1:training_samples] -->
+<!-- validation_indices <- indices[(training_samples + 1): -->
+<!--                               (training_samples + validation_samples)] -->
+<!-- x_train <- data[training_indices,] -->
+<!-- y_train <- labels[training_indices] -->
+<!-- x_val <- data[validation_indices,] -->
+<!-- y_val <- labels[validation_indices] -->
+
+<!-- ``` -->
+
+
+
+<!-- ## Pre-trained Glove Embedding Model -->
+<!-- ## Parsing the GloVe word-embeddings file -->
+
+<!-- ```{r} -->
+<!-- glove_dir = "E:/Assignments and Tasks/Xan - Advance Machine Learning/Module 05/Data/" -->
+<!-- lines <- readLines(file.path(glove_dir, "glove.6B.100d.txt")) -->
+<!-- embeddings_index <- new.env(hash = TRUE, parent = emptyenv()) -->
+<!-- for (i in 1:length(lines)) { -->
+<!--   line <- lines[[i]] -->
+<!--   values <- strsplit(line, " ")[[1]] -->
+<!--   word <- values[[1]] -->
+<!--   embeddings_index[[word]] <- as.double(values[-1]) -->
+<!-- } -->
+<!-- cat("Found", length(embeddings_index), "word vectors.\n") -->
+<!-- ``` -->
+
+
+
+<!-- ## Preparing the GloVe word-embeddings matrix -->
+<!-- ```{r} -->
+<!-- embedding_dim <- 100 -->
+<!-- embedding_matrix <- array(0, c(max_words, embedding_dim)) -->
+<!-- for (word in names(word_index)) { -->
+<!--   index <- word_index[[word]] -->
+<!--   if (index < max_words) { -->
+<!--     embedding_vector <- embeddings_index[[word]] -->
+<!--     if (!is.null(embedding_vector)) -->
+<!--       embedding_matrix[index+1,] <- embedding_vector -->
+<!--   } -->
+<!-- } -->
+<!-- ``` -->
+
+
+<!-- ## Model definition -->
+<!-- ```{r} -->
+<!-- model <- keras_model_sequential() %>% -->
+<!--   layer_embedding(input_dim = max_words, output_dim = embedding_dim, -->
+<!--                   input_length = maxlen) %>% -->
+<!--   layer_simple_rnn(units = 32, return_sequences = TRUE) %>% -->
+<!--   layer_simple_rnn(units = 32, return_sequences = TRUE) %>% -->
+<!--   layer_simple_rnn(units = 32, return_sequences = TRUE) %>% -->
+<!--   layer_simple_rnn(units = 32) %>% -->
+<!--   layer_dense(units = 1, activation = "sigmoid") -->
+<!-- summary(model) -->
+
+<!-- ``` -->
+
+
+<!-- ## Loading pretrained word embeddings into the embedding layer -->
+<!-- ```{r} -->
+
+<!-- get_layer(model, index = 1) %>% -->
+<!--   set_weights(list(embedding_matrix)) %>% -->
+<!--   freeze_weights() -->
+<!-- ``` -->
+
+
+<!-- ## Training and evaluation -->
+<!-- ```{r} -->
+
+<!-- model %>% compile( -->
+<!--   optimizer = "rmsprop", -->
+<!--   loss = "binary_crossentropy", -->
+<!--   metrics = c("acc") -->
+<!-- ) -->
+<!-- history <- model %>% fit( -->
+<!--   x_train, y_train, -->
+<!--   epochs = 20, -->
+<!--   batch_size = 32, -->
+<!--   validation_data = list(x_val, y_val) -->
+<!-- ) -->
+<!-- save_model_weights_hdf5(model, "pre_trained_glove_model.h5") -->
+
+<!-- plot(history) -->
+
+
+<!-- ``` -->
+
+
+
+<!-- ## Training the same model without pretrained word embeddings -->
+<!-- ```{r} -->
+<!-- model2 <- keras_model_sequential() %>% -->
+<!--   layer_embedding(input_dim = max_words, output_dim = embedding_dim, -->
+<!--                   input_length = maxlen) %>% -->
+<!--   layer_simple_rnn(units = 32, return_sequences = TRUE) %>% -->
+<!--   layer_simple_rnn(units = 32, return_sequences = TRUE) %>% -->
+<!--   layer_simple_rnn(units = 32, return_sequences = TRUE) %>% -->
+<!--   layer_simple_rnn(units = 32) %>% -->
+<!--   layer_dense(units = 1, activation = "sigmoid") -->
+
+
+<!-- model2 %>% compile( -->
+<!--   optimizer = "rmsprop", -->
+<!--   loss = "binary_crossentropy", -->
+<!--   metrics = c("acc") -->
+<!-- ) -->
+
+<!-- history2 <- model2 %>% fit( -->
+<!--   x_train, y_train, -->
+<!--   epochs = 20, -->
+<!--   batch_size = 32, -->
+<!--   validation_data = list(x_val, y_val) -->
+<!-- ) -->
+
+<!-- plot(history2) -->
+
+
+<!-- ``` -->
+
+
+
+<!-- ## Tokenizing the data of the test set -->
+<!-- ```{r} -->
+
+<!-- test_dir <- file.path(imdb_dir, "test") -->
+<!-- labels <- c() -->
+<!-- texts <- c() -->
+<!-- for (label_type in c("neg", "pos")) { -->
+<!--   label <- switch(label_type, neg = 0, pos = 1) -->
+<!--   dir_name <- file.path(test_dir, label_type) -->
+<!--   for (fname in list.files(dir_name, pattern = glob2rx("*.txt"), -->
+<!--                            full.names = TRUE)) { -->
+<!--     texts <- c(texts, readChar(fname, file.info(fname)$size)) -->
+<!--     labels <- c(labels, label) -->
+<!--   } -->
+<!-- } -->
+<!-- sequences <- texts_to_sequences(tokenizer, texts) -->
+<!-- x_test <- pad_sequences(sequences, maxlen = maxlen) -->
+<!-- y_test <- as.array(labels) -->
+
+<!-- ``` -->
+
+
+<!-- ```{r} -->
+
+<!-- results2 <- model2 %>% evaluate(x_test, y_test) -->
+<!-- results2 -->
+
+<!-- ``` -->
+
+
+<!-- ## Evaluating the model on the test set -->
+<!-- ```{r} -->
+
+<!-- model %>% -->
+<!--   load_model_weights_hdf5("pre_trained_glove_model.h5") %>% -->
+<!--   evaluate(x_test, y_test) -->
+
+<!-- ``` -->
+
+
+
+
+
+
+
+
+
+
+
+<!-- ======================================================================= -->
+
+
+## TASK 03 - (Using RNN & Increase training samples)
+
+
+## Processing the labels of the raw IMDB data
+```{r}
+library(keras)
+
+
+imdb_dir <- "E:/Assignments and Tasks/Xan - Advance Machine Learning/Module 05/Data/aclImdb/"
+train_dir <- file.path(imdb_dir, "train")
+labels <- c()
+texts <- c()
+for (label_type in c("neg", "pos")) {
+  label <- switch(label_type, neg = 0, pos = 1)
+  dir_name <- file.path(train_dir, label_type)
+  for (fname in list.files(dir_name, pattern = glob2rx("*.txt"),
+                           full.names = TRUE)) {
+    texts <- c(texts, readChar(fname, file.info(fname)$size))
+    labels <- c(labels, label)
+  }
+}
+
+
+```
+
+
+
+## Tokenizing the text of the raw IMDB data
+```{r}
+
+maxlen <- 500
+training_samples <- 10000
+validation_samples <- 10000
+max_words <- 10000
+
+tokenizer <- text_tokenizer(num_words = max_words) %>%
+  fit_text_tokenizer(texts)
+sequences <- texts_to_sequences(tokenizer, texts)
+word_index = tokenizer$word_index
+cat("Found", length(word_index), "unique tokens.\n")
+
+data <- pad_sequences(sequences, maxlen = maxlen)
+labels <- as.array(labels)
+cat("Shape of data tensor:", dim(data), "\n")
+cat('Shape of label tensor:', dim(labels), "\n")
+
+indices <- sample(1:nrow(data))
+training_indices <- indices[1:training_samples]
+validation_indices <- indices[(training_samples + 1):
+                              (training_samples + validation_samples)]
+x_train <- data[training_indices,]
+y_train <- labels[training_indices]
+x_val <- data[validation_indices,]
+y_val <- labels[validation_indices]
+
+```
+
+
+
+## Pre-trained Glove Embedding Model
+## Parsing the GloVe word-embeddings file
+
+```{r}
+glove_dir = "E:/Assignments and Tasks/Xan - Advance Machine Learning/Module 05/Data/"
+lines <- readLines(file.path(glove_dir, "glove.6B.100d.txt"))
+embeddings_index <- new.env(hash = TRUE, parent = emptyenv())
+for (i in 1:length(lines)) {
+  line <- lines[[i]]
+  values <- strsplit(line, " ")[[1]]
+  word <- values[[1]]
+  embeddings_index[[word]] <- as.double(values[-1])
+}
+cat("Found", length(embeddings_index), "word vectors.\n")
+```
+
+
+
+## Preparing the GloVe word-embeddings matrix
+```{r}
+embedding_dim <- 100
+embedding_matrix <- array(0, c(max_words, embedding_dim))
+for (word in names(word_index)) {
+  index <- word_index[[word]]
+  if (index < max_words) {
+    embedding_vector <- embeddings_index[[word]]
+    if (!is.null(embedding_vector))
+      embedding_matrix[index+1,] <- embedding_vector
+  }
+}
+```
+
+
+## Model definition
+```{r}
+model <- keras_model_sequential() %>%
+  layer_embedding(input_dim = max_words, output_dim = embedding_dim,
+                  input_length = maxlen) %>%
+  layer_simple_rnn(units = 32, return_sequences = TRUE) %>%
+  layer_simple_rnn(units = 32, return_sequences = TRUE) %>%
+  layer_simple_rnn(units = 32, return_sequences = TRUE) %>%
+  layer_simple_rnn(units = 32) %>%
+  layer_dense(units = 1, activation = "sigmoid")
+summary(model)
+
+```
+
+
+## Loading pretrained word embeddings into the embedding layer
+```{r}
+
+get_layer(model, index = 1) %>%
+  set_weights(list(embedding_matrix)) %>%
+  freeze_weights()
+```
+
+
+## Training and evaluation
+```{r}
+
+model %>% compile(
+  optimizer = "rmsprop",
+  loss = "binary_crossentropy",
+  metrics = c("acc")
+)
+history <- model %>% fit(
+  x_train, y_train,
+  epochs = 20,
+  batch_size = 32,
+  validation_data = list(x_val, y_val)
+)
+save_model_weights_hdf5(model, "pre_trained_glove_model.h5")
+
+plot(history)
+
+
+```
+
+
+
+## Training the same model without pretrained word embeddings
+```{r}
+model2 <- keras_model_sequential() %>%
+  layer_embedding(input_dim = max_words, output_dim = embedding_dim,
+                  input_length = maxlen) %>%
+  layer_simple_rnn(units = 32, return_sequences = TRUE) %>%
+  layer_simple_rnn(units = 32, return_sequences = TRUE) %>%
+  layer_simple_rnn(units = 32, return_sequences = TRUE) %>%
+  layer_simple_rnn(units = 32) %>%
+  layer_dense(units = 1, activation = "sigmoid")
+  
+
+model2 %>% compile(
+  optimizer = "rmsprop",
+  loss = "binary_crossentropy",
+  metrics = c("acc")
+)
+
+history2 <- model2 %>% fit(
+  x_train, y_train,
+  epochs = 20,
+  batch_size = 32,
+  validation_data = list(x_val, y_val)
+)
+
+plot(history2)
+
+
+```
+
+
+
+## Tokenizing the data of the test set
+```{r}
+
+test_dir <- file.path(imdb_dir, "test")
+labels <- c()
+texts <- c()
+for (label_type in c("neg", "pos")) {
+  label <- switch(label_type, neg = 0, pos = 1)
+  dir_name <- file.path(test_dir, label_type)
+  for (fname in list.files(dir_name, pattern = glob2rx("*.txt"),
+                           full.names = TRUE)) {
+    texts <- c(texts, readChar(fname, file.info(fname)$size))
+    labels <- c(labels, label)
+  }
+}
+sequences <- texts_to_sequences(tokenizer, texts)
+x_test <- pad_sequences(sequences, maxlen = maxlen)
+y_test <- as.array(labels)
+
+```
+
+
+```{r}
+
+results2 <- model2 %>% evaluate(x_test, y_test)
+results2
+
+```
+
+
+## Evaluating the model on the test set
+```{r}
+
+model %>%
+  load_model_weights_hdf5("pre_trained_glove_model.h5") %>%
+  evaluate(x_test, y_test)
+
+```
+
+
+
+
+

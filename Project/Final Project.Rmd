@@ -1,0 +1,564 @@
+---
+title: "Final Project"
+output:
+  html_document: default
+  pdf_document: default
+---
+## Import Keras library for cats vs dogs dataset
+```{r}
+library(keras)
+original_dataset_dir &lt;- &quot;~/Downloads/kaggle_original_data&quot;
+base_dir &lt;- &quot;E:/Assignments and Tasks/Xan - Advance Machine Learning/Module 04/cat vs dog -
+dataset/sm/&quot;
+train_dir &lt;- file.path(base_dir, &quot;train&quot;)
+validation_dir &lt;- file.path(base_dir, &quot;validation&quot;)
+test_dir &lt;- file.path(base_dir, &quot;test&quot;)
+train_cats_dir &lt;- file.path(train_dir, &quot;cats&quot;)
+train_dogs_dir &lt;- file.path(train_dir, &quot;dogs&quot;)
+validation_cats_dir &lt;- file.path(validation_dir, &quot;cats&quot;)
+validation_dogs_dir &lt;- file.path(validation_dir, &quot;dogs&quot;)
+test_cats_dir &lt;- file.path(test_dir, &quot;cats&quot;)
+test_dogs_dir &lt;- file.path(test_dir, &quot;dogs&quot;)
+```
+
+## Cats and dogs images in each directory
+```{r}
+cat(&quot;total training cat images:&quot;, length(list.files(train_cats_dir)), &quot;\n&quot;)
+cat(&quot;total training dog images:&quot;, length(list.files(train_dogs_dir)), &quot;\n&quot;)
+cat(&quot;total validation cat images:&quot;, length(list.files(validation_cats_dir)), &quot;\n&quot;)
+cat(&quot;total validation dog images:&quot;, length(list.files(validation_dogs_dir)), &quot;\n&quot;)
+cat(&quot;total test cat images:&quot;, length(list.files(test_cats_dir)), &quot;\n&quot;)
+cat(&quot;total test dog images:&quot;, length(list.files(test_dogs_dir)), &quot;\n&quot;)
+```
+
+## Build the model
+```{r}
+model &lt;- keras_model_sequential() %&gt;%
+layer_conv_2d(filters = 32, kernel_size = c(3, 3), activation = &quot;relu&quot;,
+input_shape = c(150, 150, 3)) %&gt;%
+layer_max_pooling_2d(pool_size = c(2, 2)) %&gt;%
+layer_conv_2d(filters = 64, kernel_size = c(3, 3), activation = &quot;relu&quot;) %&gt;%
+layer_max_pooling_2d(pool_size = c(2, 2)) %&gt;%
+layer_conv_2d(filters = 128, kernel_size = c(3, 3), activation = &quot;relu&quot;) %&gt;%
+layer_max_pooling_2d(pool_size = c(2, 2)) %&gt;%
+layer_conv_2d(filters = 128, kernel_size = c(3, 3), activation = &quot;relu&quot;) %&gt;%
+layer_max_pooling_2d(pool_size = c(2, 2)) %&gt;%
+layer_flatten() %&gt;%
+layer_dense(units = 512, activation = &quot;relu&quot;) %&gt;%
+layer_dense(units = 1, activation = &quot;sigmoid&quot;)
+
+model %&gt;% compile(
+loss = &quot;binary_crossentropy&quot;,
+optimizer = optimizer_rmsprop(lr = 1e-4),
+metrics = c(&quot;acc&quot;)
+)
+summary(model)
+```
+
+## Develop Data Generator
+```{r}
+
+train_datagen &lt;- image_data_generator(rescale = 1/255)
+validation_datagen &lt;- image_data_generator(rescale = 1/255)
+train_generator &lt;- flow_images_from_directory(
+train_dir,
+train_datagen,
+target_size = c(150, 150),
+batch_size = 20,
+class_mode = &quot;binary&quot;
+)
+validation_generator &lt;- flow_images_from_directory(
+validation_dir,
+validation_datagen,
+target_size = c(150, 150),
+batch_size = 20,
+class_mode = &quot;binary&quot;
+)
+batch &lt;- generator_next(train_generator)
+str(batch)
+```
+
+## Train the model
+```{r}
+history &lt;- model %&gt;% fit_generator(
+train_generator,
+steps_per_epoch = 100,
+epochs = 30,
+validation_data = validation_generator,
+validation_steps = 50
+
+)
+
+## Save the Model
+```{r}
+model %&gt;% save_model_hdf5(&quot;cats_and_dogs_small_1.h5&quot;)
+```
+
+## Develop Data Generator (using Data Augmentation Technique to reduce overfitting)
+```{r}
+datagen &lt;- image_data_generator(
+rescale = 1/255,
+rotation_range = 40,
+width_shift_range = 0.2,
+height_shift_range = 0.2,
+shear_range = 0.2,
+zoom_range = 0.2,
+horizontal_flip = TRUE
+)
+test_datagen &lt;- image_data_generator(rescale = 1/255)
+train_generator &lt;- flow_images_from_directory(
+train_dir,
+datagen,
+target_size = c(150, 150),
+batch_size = 20,
+class_mode = &quot;binary&quot;
+)
+validation_generator &lt;- flow_images_from_directory(
+validation_dir,
+
+test_datagen,
+target_size = c(150, 150),
+batch_size = 20,
+class_mode = &quot;binary&quot;
+)
+batch &lt;- generator_next(train_generator)
+str(batch)
+```
+## Train the model
+```{r}
+history &lt;- model %&gt;% fit_generator(
+train_generator,
+steps_per_epoch = 100,
+epochs = 100,
+validation_data = validation_generator,
+validation_steps = 50
+)
+
+## Training and evaluation
+```{r}
+model %&gt;% compile(
+optimizer = &quot;rmsprop&quot;,
+loss = &quot;binary_crossentropy&quot;,
+metrics = c(&quot;acc&quot;)
+)
+history &lt;- model %&gt;% fit(
+x_train, y_train,
+epochs = 20,
+batch_size = 32,
+
+validation_data = list(x_val, y_val)
+)
+save_model_weights_hdf5(model, &quot;pre_trained_glove_model.h5&quot;)
+plot(history)
+```
+
+## Training the same model without pretrained word embeddings
+```{r}
+model2 &lt;- keras_model_sequential() %&gt;%
+layer_embedding(input_dim = max_words, output_dim = embedding_dim,
+input_length = maxlen) %&gt;%
+layer_flatten() %&gt;%
+layer_dense(units = 32, activation = &quot;relu&quot;) %&gt;%
+layer_dense(units = 1, activation = &quot;sigmoid&quot;)
+model2 %&gt;% compile(
+optimizer = &quot;rmsprop&quot;,
+loss = &quot;binary_crossentropy&quot;,
+metrics = c(&quot;acc&quot;)
+)
+history2 &lt;- model2 %&gt;% fit(
+x_train, y_train,
+epochs = 20,
+batch_size = 32,
+validation_data = list(x_val, y_val)
+)
+
+## Tokenizing the test set data
+```{r}
+test_dir &lt;- file.path(imdb_dir, &quot;test&quot;)
+
+labels &lt;- c()
+texts &lt;- c()
+for (label_type in c(&quot;neg&quot;, &quot;pos&quot;)) {
+label &lt;- switch(label_type, neg = 0, pos = 1)
+dir_name &lt;- file.path(test_dir, label_type)
+for (fname in list.files(dir_name, pattern = glob2rx(&quot;*.txt&quot;),
+full.names = TRUE)) {
+texts &lt;- c(texts, readChar(fname, file.info(fname)$size))
+labels &lt;- c(labels, label)
+}
+}
+sequences &lt;- texts_to_sequences(tokenizer, texts)
+x_test &lt;- pad_sequences(sequences, maxlen = maxlen)
+y_test &lt;- as.array(labels)
+```
+
+results2 &lt;- model2 %&gt;% evaluate(x_test, y_test)
+results2
+```
+
+## Evaluating the test set model
+```{r}
+model %&gt;%
+load_model_weights_hdf5(&quot;pre_trained_glove_model.h5&quot;) %&gt;%
+evaluate(x_test, y_test)
+```
+
+(Using RNN &amp; Increase training samples)
+
+## Processing the raw IMBD data models
+```{r}
+library(keras)
+imdb_dir &lt;- &quot;E:/Assignments and Tasks/Xan - Advance Machine Learning/Module 05/Data/aclImdb/&quot;
+train_dir &lt;- file.path(imdb_dir, &quot;train&quot;)
+labels &lt;- c()
+texts &lt;- c()
+for (label_type in c(&quot;neg&quot;, &quot;pos&quot;)) {
+label &lt;- switch(label_type, neg = 0, pos = 1)
+dir_name &lt;- file.path(train_dir, label_type)
+for (fname in list.files(dir_name, pattern = glob2rx(&quot;*.txt&quot;),
+full.names = TRUE)) {
+texts &lt;- c(texts, readChar(fname, file.info(fname)$size))
+labels &lt;- c(labels, label)
+}
+}
+```
+
+## Tokenizing the raw IMDB data text
+```{r}
+maxlen &lt;- 500
+training_samples &lt;- 10000
+validation_samples &lt;- 10000
+max_words &lt;- 10000
+tokenizer &lt;- text_tokenizer(num_words = max_words) %&gt;%
+
+fit_text_tokenizer(texts)
+sequences &lt;- texts_to_sequences(tokenizer, texts)
+word_index = tokenizer$word_index
+cat(&quot;Found&quot;, length(word_index), &quot;unique tokens.\n&quot;)
+data &lt;- pad_sequences(sequences, maxlen = maxlen)
+labels &lt;- as.array(labels)
+cat(&quot;Shape of data tensor:&quot;, dim(data), &quot;\n&quot;)
+cat(&#39;Shape of label tensor:&#39;, dim(labels), &quot;\n&quot;)
+indices &lt;- sample(1:nrow(data))
+training_indices &lt;- indices[1:training_samples]
+validation_indices &lt;- indices[(training_samples + 1):
+(training_samples + validation_samples)]
+x_train &lt;- data[training_indices,]
+y_train &lt;- labels[training_indices]
+x_val &lt;- data[validation_indices,]
+y_val &lt;- labels[validation_indices]
+```
+
+## Pre-trained Glove Embedding Model
+## Parsing the GloVe word-embeddings file
+
+```{r}
+glove_dir = &quot;E:/Assignments and Tasks/Xan - Advance Machine Learning/Module 05/Data/&quot;
+lines &lt;- readLines(file.path(glove_dir, &quot;glove.6B.100d.txt&quot;))
+embeddings_index &lt;- new.env(hash = TRUE, parent = emptyenv())
+for (i in 1:length(lines)) {
+line &lt;- lines[[i]]
+
+values &lt;- strsplit(line, &quot; &quot;)[[1]]
+word &lt;- values[[1]]
+embeddings_index[[word]] &lt;- as.double(values[-1])
+}
+cat(&quot;Found&quot;, length(embeddings_index), &quot;word vectors.\n&quot;)
+```
+
+## Preparing the GloVe word-embeddings matrix
+```{r}
+embedding_dim &lt;- 100
+embedding_matrix &lt;- array(0, c(max_words, embedding_dim))
+for (word in names(word_index)) {
+index &lt;- word_index[[word]]
+if (index &lt; max_words) {
+embedding_vector &lt;- embeddings_index[[word]]
+if (!is.null(embedding_vector))
+embedding_matrix[index+1,] &lt;- embedding_vector
+}
+}
+```
+
+## Define the model
+```{r}
+model &lt;- keras_model_sequential() %&gt;%
+layer_embedding(input_dim = max_words, output_dim = embedding_dim,
+input_length = maxlen) %&gt;%
+
+layer_simple_rnn(units = 32, return_sequences = TRUE) %&gt;%
+layer_simple_rnn(units = 32, return_sequences = TRUE) %&gt;%
+layer_simple_rnn(units = 32, return_sequences = TRUE) %&gt;%
+layer_simple_rnn(units = 32) %&gt;%
+layer_dense(units = 1, activation = &quot;sigmoid&quot;)
+summary(model)
+```
+
+## Loading pretrained word embeddings into the embedding layer
+```{r}
+get_layer(model, index = 1) %&gt;%
+set_weights(list(embedding_matrix)) %&gt;%
+freeze_weights()
+```
+
+## Training and evaluating
+```{r}
+model %&gt;% compile(
+optimizer = &quot;rmsprop&quot;,
+loss = &quot;binary_crossentropy&quot;,
+metrics = c(&quot;acc&quot;)
+)
+history &lt;- model %&gt;% fit(
+x_train, y_train,
+epochs = 20,
+batch_size = 32,
+validation_data = list(x_val, y_val)
+
+)
+save_model_weights_hdf5(model, &quot;pre_trained_glove_model.h5&quot;)
+plot(history)
+```
+
+## Training the same model without pretrained word embeddings
+```{r}
+model2 &lt;- keras_model_sequential() %&gt;%
+layer_embedding(input_dim = max_words, output_dim = embedding_dim,
+input_length = maxlen) %&gt;%
+layer_simple_rnn(units = 32, return_sequences = TRUE) %&gt;%
+layer_simple_rnn(units = 32, return_sequences = TRUE) %&gt;%
+layer_simple_rnn(units = 32, return_sequences = TRUE) %&gt;%
+layer_simple_rnn(units = 32) %&gt;%
+layer_dense(units = 1, activation = &quot;sigmoid&quot;)
+
+model2 %&gt;% compile(
+optimizer = &quot;rmsprop&quot;,
+loss = &quot;binary_crossentropy&quot;,
+metrics = c(&quot;acc&quot;)
+)
+history2 &lt;- model2 %&gt;% fit(
+x_train, y_train,
+epochs = 20,
+batch_size = 32,
+validation_data = list(x_val, y_val)
+)
+
+plot(history2)
+```
+
+## Tokenizing the test set data
+```{r}
+test_dir &lt;- file.path(imdb_dir, &quot;test&quot;)
+labels &lt;- c()
+texts &lt;- c()
+for (label_type in c(&quot;neg&quot;, &quot;pos&quot;)) {
+label &lt;- switch(label_type, neg = 0, pos = 1)
+dir_name &lt;- file.path(test_dir, label_type)
+for (fname in list.files(dir_name, pattern = glob2rx(&quot;*.txt&quot;),
+full.names = TRUE)) {
+texts &lt;- c(texts, readChar(fname, file.info(fname)$size))
+labels &lt;- c(labels, label)
+}
+}
+sequences &lt;- texts_to_sequences(tokenizer, texts)
+x_test &lt;- pad_sequences(sequences, maxlen = maxlen)
+y_test &lt;- as.array(labels)
+```
+
+```{r}
+results2 &lt;- model2 %&gt;% evaluate(x_test, y_test)
+results2
+```
+
+## Evaluating the test set model
+```{r}
+model %&gt;%
+load_model_weights_hdf5(&quot;pre_trained_glove_model.h5&quot;) %&gt;%
+evaluate(x_test, y_test)
+```
+
+## Saving model
+```{r}
+model %&gt;% save_model_hdf5(&quot;cats_and_dogs_small_2.h5&quot;)
+
+(Using
+RNN &amp;
+Increase
+training
+samples)
+
+## Processing the labels of the raw IMDB data
+```{r}
+library(keras)
+
+imdb_dir &lt;- &quot;E:/Assignments and Tasks/Xan - Advance Machine Learning/Module
+05/Data/aclImdb/&quot;
+train_dir &lt;- file.path(imdb_dir, &quot;train&quot;)
+labels &lt;- c()
+texts &lt;- c()
+
+for (label_type in c(&quot;neg&quot;, &quot;pos&quot;)) {
+label &lt;- switch(label_type, neg = 0, pos = 1)
+dir_name &lt;- file.path(train_dir, label_type)
+for (fname in list.files(dir_name, pattern = glob2rx(&quot;*.txt&quot;),
+full.names = TRUE)) {
+texts &lt;- c(texts, readChar(fname, file.info(fname)$size))
+labels &lt;- c(labels, label)
+}
+}
+
+```
+
+## Tokenizing the text of the raw IMDB data
+```{r}
+maxlen &lt;- 500
+training_samples &lt;- 10000
+validation_samples &lt;- 10000
+max_words &lt;- 10000
+tokenizer &lt;- text_tokenizer(num_words = max_words) %&gt;%
+fit_text_tokenizer(texts)
+sequences &lt;- texts_to_sequences(tokenizer, texts)
+word_index = tokenizer$word_index
+cat(&quot;Found&quot;, length(word_index), &quot;unique tokens.\n&quot;)
+data &lt;- pad_sequences(sequences, maxlen = maxlen)
+labels &lt;- as.array(labels)
+cat(&quot;Shape of data tensor:&quot;, dim(data), &quot;\n&quot;)
+cat(&#39;Shape of label tensor:&#39;, dim(labels), &quot;\n&quot;)
+indices &lt;- sample(1:nrow(data))
+training_indices &lt;- indices[1:training_samples]
+validation_indices &lt;- indices[(training_samples + 1):
+(training_samples + validation_samples)]
+x_train &lt;- data[training_indices,]
+y_train &lt;- labels[training_indices]
+
+x_val &lt;- data[validation_indices,]
+y_val &lt;- labels[validation_indices]
+```
+
+## Pre-trained Glove Embedding Model
+## Parsing the GloVe word-embeddings file
+
+```{r}
+glove_dir = &quot;E:/Assignments and Tasks/Xan - Advance Machine Learning/Module
+05/Data/&quot;
+lines &lt;- readLines(file.path(glove_dir, &quot;glove.6B.100d.txt&quot;))
+embeddings_index &lt;- new.env(hash = TRUE, parent = emptyenv())
+for (i in 1:length(lines)) {
+line &lt;- lines[[i]]
+values &lt;- strsplit(line, &quot; &quot;)[[1]]
+word &lt;- values[[1]]
+embeddings_index[[word]] &lt;- as.double(values[-1])
+}
+cat(&quot;Found&quot;, length(embeddings_index), &quot;word vectors.\n&quot;)
+```
+
+## Preparing the GloVe word-embeddings matrix
+```{r}
+embedding_dim &lt;- 100
+embedding_matrix &lt;- array(0, c(max_words, embedding_dim))
+for (word in names(word_index)) {
+index &lt;- word_index[[word]]
+if (index &lt; max_words) {
+embedding_vector &lt;- embeddings_index[[word]]
+if (!is.null(embedding_vector))
+embedding_matrix[index+1,] &lt;- embedding_vector
+
+}
+}
+```
+
+## Model definition
+```{r}
+model &lt;- keras_model_sequential() %&gt;%
+layer_embedding(input_dim = max_words, output_dim = embedding_dim,
+input_length = maxlen) %&gt;%
+layer_simple_rnn(units = 32, return_sequences = TRUE) %&gt;%
+layer_simple_rnn(units = 32, return_sequences = TRUE) %&gt;%
+layer_simple_rnn(units = 32, return_sequences = TRUE) %&gt;%
+layer_simple_rnn(units = 32) %&gt;%
+layer_dense(units = 1, activation = &quot;sigmoid&quot;)
+summary(model)
+```
+
+## Loading pretrained word embeddings into the embedding layer
+```{r}
+get_layer(model, index = 1) %&gt;%
+set_weights(list(embedding_matrix)) %&gt;%
+freeze_weights()
+```
+
+## Training and evaluation
+```{r}
+model %&gt;% compile(
+optimizer = &quot;rmsprop&quot;,
+loss = &quot;binary_crossentropy&quot;,
+metrics = c(&quot;acc&quot;)
+)
+
+history &lt;- model %&gt;% fit(
+x_train, y_train,
+epochs = 20,
+batch_size = 32,
+validation_data = list(x_val, y_val)
+)
+save_model_weights_hdf5(model, &quot;pre_trained_glove_model.h5&quot;)
+plot(history)
+
+```
+
+## Training the same model without pretrained word embeddings
+```{r}
+model2 &lt;- keras_model_sequential() %&gt;%
+layer_embedding(input_dim = max_words, output_dim = embedding_dim,
+input_length = maxlen) %&gt;%
+layer_simple_rnn(units = 32, return_sequences = TRUE) %&gt;%
+layer_simple_rnn(units = 32, return_sequences = TRUE) %&gt;%
+layer_simple_rnn(units = 32, return_sequences = TRUE) %&gt;%
+layer_simple_rnn(units = 32) %&gt;%
+layer_dense(units = 1, activation = &quot;sigmoid&quot;)
+
+model2 %&gt;% compile(
+optimizer = &quot;rmsprop&quot;,
+loss = &quot;binary_crossentropy&quot;,
+metrics = c(&quot;acc&quot;)
+)
+history2 &lt;- model2 %&gt;% fit(
+x_train, y_train,
+epochs = 20,
+batch_size = 32,
+validation_data = list(x_val, y_val)
+)
+
+plot(history2)
+
+```
+
+## Tokenizing the data of the test set
+```{r}
+test_dir &lt;- file.path(imdb_dir, &quot;test&quot;)
+labels &lt;- c()
+texts &lt;- c()
+for (label_type in c(&quot;neg&quot;, &quot;pos&quot;)) {
+label &lt;- switch(label_type, neg = 0, pos = 1)
+dir_name &lt;- file.path(test_dir, label_type)
+for (fname in list.files(dir_name, pattern = glob2rx(&quot;*.txt&quot;),
+full.names = TRUE)) {
+texts &lt;- c(texts, readChar(fname, file.info(fname)$size))
+labels &lt;- c(labels, label)
+}
+}
+sequences &lt;- texts_to_sequences(tokenizer, texts)
+x_test &lt;- pad_sequences(sequences, maxlen = maxlen)
+y_test &lt;- as.array(labels)
+```
+
+```{r}
+results2 &lt;- model2 %&gt;% evaluate(x_test, y_test)
+results2
+```
+
+## Evaluating the model on the test set
+```{r}
+model %&gt;%
+load_model_weights_hdf5(&quot;pre_trained_glove_model.h5&quot;) %&gt;%
+evaluate(x_test, y_test)
+```
